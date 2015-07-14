@@ -36,7 +36,8 @@ class Exporter():
 
         for r_type in ['headers', 's_sources', 'c_sources', 'cpp_sources',
             'objects', 'libraries', 'linker_script',
-            'lib_builds', 'lib_refs', 'repo_files', 'hex_files', 'bin_files']:
+            'lib_builds', 'lib_refs', 'repo_files', 'hex_files', 'bin_files',
+            'target_files']:
             r = getattr(resources, r_type)
             if r:
                 self.toolchain.copy_files(r, trg_path, rel_path=src_path)

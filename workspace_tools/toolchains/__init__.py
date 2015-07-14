@@ -111,6 +111,7 @@ class Resources:
         # Other files
         self.hex_files = []
         self.bin_files = []
+        self.target_files = []
 
     def add(self, resources):
         self.inc_dirs += resources.inc_dirs
@@ -135,11 +136,13 @@ class Resources:
 
         self.hex_files += resources.hex_files
         self.bin_files += resources.bin_files
+        self.target_files += resources.target_files
 
     def relative_to(self, base, dot=False):
         for field in ['inc_dirs', 'headers', 's_sources', 'c_sources',
                       'cpp_sources', 'lib_dirs', 'objects', 'libraries',
-                      'lib_builds', 'lib_refs', 'repo_dirs', 'repo_files', 'hex_files', 'bin_files']:
+                      'lib_builds', 'lib_refs', 'repo_dirs', 'repo_files',
+                      'hex_files', 'bin_files', 'target_files']:
             v = [rel_path(f, base, dot) for f in getattr(self, field)]
             setattr(self, field, v)
         if self.linker_script is not None:
@@ -148,7 +151,8 @@ class Resources:
     def win_to_unix(self):
         for field in ['inc_dirs', 'headers', 's_sources', 'c_sources',
                       'cpp_sources', 'lib_dirs', 'objects', 'libraries',
-                      'lib_builds', 'lib_refs', 'repo_dirs', 'repo_files', 'hex_files', 'bin_files']:
+                      'lib_builds', 'lib_refs', 'repo_dirs', 'repo_files',
+                      'hex_files', 'bin_files', 'target_files']:
             v = [f.replace('\\', '/') for f in getattr(self, field)]
             setattr(self, field, v)
         if self.linker_script is not None:
@@ -171,6 +175,8 @@ class Resources:
 
                 ('Hex files', self.hex_files),
                 ('Bin files', self.bin_files),
+
+                ('Target-specific files', self.target_files),
             ):
             if resources:
                 s.append('%s:\n  ' % label + '\n  '.join(resources))
@@ -396,6 +402,11 @@ class mbedToolchain:
                 
                 elif ext == '.bin':
                     resources.bin_files.append(file_path)
+
+                elif hasattr(self.target, "file_filter_hook")\
+                        and self.target.file_filter_hook(file_path, ext):
+                    # Target-specific hook returns True when the file needs to be copied
+                    resources.target_files.append(file_path)
 
         return resources
 
