@@ -1,0 +1,12 @@
+;WITH s110 SOFTDEVICE:
+
+LR_IROM1 0x18000 0x0028000  {
+  ER_IROM1 0x18000 0x0028000  {
+   *.o (RESET, +First)
+   *(InRoot$$Sections)
+   .ANY (+RO)
+  }
+  RW_IRAM1 0x20002000 0x00002000  {
+   .ANY (+RW +ZI)
+  }
+}

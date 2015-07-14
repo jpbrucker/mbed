@@ -955,6 +955,17 @@ class NRF51822(Target):
         if toolchain_name in ['ARM_STD', 'ARM_MICRO', 'GCC_ARM', 'IAR']:
             hook.hook_add_binary("post", self.binary_hook)
 
+    def file_filter_hook(self, file_path, ext):
+        """
+        Called by the resource scanner. Return True when the file needs to
+        be copied with target-specific resources.
+        """
+        if ext == ".s110":
+            # File is required for s110 compat mode
+            return True
+
+        return False
+
     @staticmethod
     def binary_hook(t_self, resources, elf, binf):
         # Scan to find the actual paths of soft device and bootloader files
