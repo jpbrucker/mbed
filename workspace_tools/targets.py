@@ -954,6 +954,7 @@ class NRF51822(Target):
     def init_hooks(self, hook, toolchain_name):
         if toolchain_name in ['ARM_STD', 'ARM_MICRO', 'GCC_ARM', 'IAR']:
             hook.hook_add_binary("post", self.binary_hook)
+            hook.hook_gen_file("pre", self.gen_file_hook)
 
     def file_filter_hook(self, file_path, ext):
         """
@@ -980,7 +981,7 @@ class NRF51822(Target):
                         sdf = hexf
                         break
 
-        if sdf is None:
+        if sd is None:
             t_self.debug("Hex file not found. Aborting.")
             return
 

@@ -8,6 +8,7 @@ from jinja2.environment import Environment
 from contextlib import closing
 from zipfile import ZipFile, ZIP_DEFLATED
 
+from workspace_tools.hooks import hook_tool
 from workspace_tools.utils import mkdir
 from workspace_tools.toolchains import TOOLCHAIN_CLASSES
 from workspace_tools.targets import TARGET_MAP
@@ -90,6 +91,10 @@ class Exporter():
         # if not self.toolchain.mbed_libs:
         #    raise OldLibrariesException()
 
+        if hasattr(self.toolchain.target, "resources_hook"):
+            self.toolchain.target.resources_hook(self.toolchain, self.resources)
+
+    @hook_tool
     def gen_file(self, template_file, data, target_file):
         template_path = join(Exporter.TEMPLATE_DIR, template_file)
         template = self.jinja_environment.get_template(template_file)

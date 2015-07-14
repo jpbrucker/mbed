@@ -90,6 +90,9 @@ def build_project(src_path, build_path, target, toolchain_name,
         objects = toolchain.compile_sources(src, build_path, resources.inc_dirs)
         resources.objects.extend(objects)
 
+    if hasattr(target, "resources_hook"):
+        target.resources_hook(toolchain, resources)
+
     # Link Program
     return toolchain.link_program(resources, build_path, name)
 

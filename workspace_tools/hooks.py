@@ -11,7 +11,7 @@ _hooks = {}
 _running_hooks = {}
 
 # Available hook types
-_hook_types = ["binary", "compile", "link", "assemble"]
+_hook_types = ["binary", "compile", "link", "assemble", "gen_file"]
 
 # Available hook steps
 _hook_steps = ["pre", "replace", "post"]
@@ -83,6 +83,9 @@ class Hook:
 
     def hook_add_binary(self, hook_step, function):
         return self._hook_add("binary", hook_step, function)
+
+    def hook_gen_file(self, hook_step, function):
+        return self._hook_add("gen_file", hook_step, function)
 
     # Hook command lines
     def _hook_cmdline(self, hook_type, function):
