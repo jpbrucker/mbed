@@ -938,6 +938,8 @@ class NRF51822(Target):
     MERGE_SOFT_DEVICE = True
     MERGE_BOOTLOADER = False
 
+    USE_S110_SOFT_DEVICE = False
+
     def __init__(self):
         Target.__init__(self)
         self.core = "Cortex-M0"
@@ -947,6 +949,9 @@ class NRF51822(Target):
         self.supported_toolchains = ["ARM", "GCC_ARM", "IAR"]
         self.is_disk_virtual = True
         self.detect_code = ["1070"]
+
+        self.softdevice = {}
+        self.bootloader_file = None
 
     def program_cycle_s(self):
         return 6
@@ -967,32 +972,91 @@ class NRF51822(Target):
 
         return False
 
-    @staticmethod
-    def binary_hook(t_self, resources, elf, binf):
-        # Scan to find the actual paths of soft device and bootloader files
-        sdf = None
-        blf = None
+    def resources_hook(self, toolchain, resources):
+        """
+        Called by exporter and build_api, after gathering all resources and just
+        before executing the final step. Depending on the caller, this can be
+        either linking the final executable, or generating a makefile.
+
+        File generation will need to set a softdevice path, so we extract it here.
+        Then, depending on the SoftDevice used, linker script may need to be
+        modified.
+        """
+        ## Select softdevice
         for hexf in resources.hex_files:
-            if hexf.find(t_self.target.EXPECTED_BOOTLOADER_FILENAME) != -1:
-                blf = hexf
+            if self.USE_S110_SOFTDEVICE and hexf.find('s130') != -1:
+                continue
+
+            if hexf.find(self.EXPECTED_BOOTLOADER_FILENAME) != -1:
+                self.bootloader_file = hexf
             else:
-                for softdeviceAndOffsetEntry in t_self.target.EXPECTED_SOFTDEVICES_WITH_OFFSETS:
+                for softdeviceAndOffsetEntry in self.EXPECTED_SOFTDEVICES_WITH_OFFSETS:
                     if hexf.find(softdeviceAndOffsetEntry['name']) != -1:
-                        sdf = hexf
+                        self.softdevice = dict(softdeviceAndOffsetEntry, file=hexf)
                         break
 
-        if sd is None:
+        if not self.softdevice and self.MERGE_SOFT_DEVICE:
+            raise Exception("Could not find softdevice")
+
+        if not self.bootloader_file and self.MERGE_BOOTLOADER:
+            raise Exception("Could not find bootloader")
+
+        ## Filter include paths
+        def is_compatible(f):
+            v = ("s130" in f and self.USE_S110_SOFTDEVICE)\
+             or ("s110" in f and not self.USE_S110_SOFTDEVICE)
+
+            if v:
+                print("DEBUG: filtering out %s" % f)
+            return not v
+
+        resources.inc_dirs = [d for d in resources.inc_dirs if is_compatible(d)]
+        resources.lib_dirs = [d for d in resources.lib_dirs if is_compatible(d)]
+
+        ## Change linker script
+        if not self.USE_S110_SOFTDEVICE or not resources.linker_script:
+            return
+
+        toolchain.debug("Replacing linker script")
+        if toolchain.name in ("ARM_STD", "ARM_MICRO"):
+            replacement = (".sct", ".sct.s110")
+        elif toolchain.name == "GCC_ARM":
+            replacement = (".ld", ".ld.s110")
+        else:
+            raise NotImplemented # TODO: IAR (s110-only at the moment)
+
+        assert resources.linker_script.find(replacement[0]) > 0
+        resources.linker_script = resources.linker_script.replace(*replacement)
+
+    def gen_file_hook(self, context):
+        """
+        Modify the exporter context before rendering a template
+        """
+        if self.softdevice:
+            context["softdevice"] = self.softdevice["file"]
+        else:
+            # Avoid jinja failure
+            context["softdevice"] = "/path/to/softdevice.hex"
+
+        return context
+
+    @staticmethod
+    def binary_hook(t_self, resources, elf, binf):
+        sd = t_self.target.softdevice
+        blf = t_self.target.bootloader_file
+
+        if not sd:
             t_self.debug("Hex file not found. Aborting.")
             return
 
         # Merge user code with softdevice
         from intelhex import IntelHex
         binh = IntelHex()
-        binh.loadbin(binf, offset=softdeviceAndOffsetEntry['offset'])
+        binh.loadbin(binf, offset=sd['offset'])
 
         if t_self.target.MERGE_SOFT_DEVICE is True:
-            t_self.debug("Merge SoftDevice file %s" % softdeviceAndOffsetEntry['name'])
-            sdh = IntelHex(sdf)
+            t_self.debug("Merge SoftDevice file %s" % sd['name'])
+            sdh = IntelHex(sd["file"])
             binh.merge(sdh)
 
         if t_self.target.MERGE_BOOTLOADER is True and blf is not None:
