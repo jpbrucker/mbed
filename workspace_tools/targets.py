@@ -953,6 +953,9 @@ class NRF51822(Target):
         self.softdevice = {}
         self.bootloader_file = None
 
+        if self.USE_S110_SOFTDEVICE:
+            self.macros.append("USE_S110_SOFTDEVICE")
+
     def program_cycle_s(self):
         return 6
 
